@@ -1,0 +1,57 @@
+{
+	"name": "stremio-addon-hanimetv",
+	"version": "1.4.0",
+	"description": "Stremio addon for Hanime.tv - Browse and stream hentai content with advanced filtering",
+	"main": "server.js",
+	"scripts": {
+		"start": "node server.js",
+		"dev": "cross-env LOG_LEVEL=debug CACHE_ENABLED=false node server.js",
+		"prod": "cross-env NODE_ENV=production LOG_LEVEL=warn node server.js",
+		"test": "node test/hanime_api_client.test.js && node test/hanime_user_api_client.test.js && node test/htv_stream_resolver.test.js && node test/hls_stream_proxy.test.js && node test/cf_bypass_client.test.js && node test/worker_relay.test.js && node test/transformers.test.js && node test/cache.test.js",
+		"discover-brands": "node scripts/discover-brands.js",
+		"refresh-htv-signature": "node scripts/refresh-htv-signature.js",
+		"discover-uncensored-genres": "node scripts/discover-uncensored-genres.js",
+		"build": "npm install && npm run build:css",
+		"build:css": "tailwindcss -i ./src/input.css -o ./public/css/tailwind.css --minify",
+		"netlify:dev": "netlify dev"
+	},
+	"keywords": [
+		"stremio",
+		"addon",
+		"hanime",
+		"streaming"
+	],
+	"author": "",
+	"license": "MIT",
+	"dependencies": {
+		"@keyv/postgres": "^2.2.1",
+		"@keyv/redis": "^5.1.4",
+		"@nekolab/hanime": "^0.3.0",
+		"@upstash/redis": "^1.35.7",
+		"axios": "1.20.0",
+		"cache-manager": "^7.2.5",
+		"cacheable": "^2.2.0",
+		"express": "^5.2.1",
+		"express-rate-limit": "^8.7.1",
+		"express-slow-down": "^3.0.1",
+		"keyv": "^5.5.4",
+		"keyv-upstash": "^1.0.8",
+		"mime-types": "^3.0.1",
+		"rate-limit-redis": "4.3.0",
+		"redis": "^5.1.0",
+		"serverless-http": "^3.2.0",
+		"stremio-addon-sdk": "1.6.10"
+	},
+	"devDependencies": {
+		"@types/node": "^24.10.0",
+		"cross-env": "^10.1.0",
+		"tailwindcss": "^3.4.1"
+	},
+	"overrides": {
+		"glob": "^11.1.0",
+		"proxy-addr": "^2.0.8"
+	},
+	"engines": {
+		"node": ">=20"
+	}
+}

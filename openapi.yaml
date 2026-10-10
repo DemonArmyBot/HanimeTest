@@ -1,0 +1,488 @@
+openapi: 3.0.3
+info:
+  title: Hanime Stremio Addon API
+  description: Stremio addon for browsing and streaming Hanime.tv content
+  version: 1.4.0
+  contact:
+    name: Hanime Stremio Addon
+servers:
+  - url: http://localhost:61327
+    description: Local development server
+
+paths:
+  /manifest.json:
+    get:
+      summary: Get addon manifest
+      description: Returns the Stremio addon manifest with metadata and catalog definitions
+      tags:
+        - Stremio
+      responses:
+        '200':
+          description: Addon manifest
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Manifest'
+
+  /catalog/{type}/{id}.json:
+    get:
+      summary: Get catalog items (no extras)
+      description: Browse content by catalog type (hanime default, series, recent, most likes, most views, newest)
+      tags:
+        - Stremio
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [anime, movie, series]
+          example: anime
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [hanime, hanime-recent, hanime-mostlikes, hanime-mostviews, hanime-newest, hanime-uncensored, hanime-series]
+          example: hanime
+      responses:
+        '200':
+          description: Catalog items
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogResponse'
+
+  /catalog/{type}/{id}/{extra}.json:
+    get:
+      summary: Get catalog items with filters
+      description: Browse content with optional search, genre filter, and pagination
+      tags:
+        - Stremio
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [anime, movie, series]
+          example: anime
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [hanime, hanime-recent, hanime-mostlikes, hanime-mostviews, hanime-newest, hanime-uncensored, hanime-series]
+          example: hanime-series
+        - name: extra
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 'Filter parameters in format: search=term, genre=tag, skip=number, or combined with & (e.g., search=school&genre=vanilla)'
+          example: search=school
+      responses:
+        '200':
+          description: Catalog items
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogResponse'
+
+  /meta/{type}/{id}.json:
+    get:
+      summary: Get video metadata
+      description: Get detailed metadata for a specific video
+      tags:
+        - Stremio
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [anime, movie, series]
+          example: anime
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Video slug/ID
+          example: shishunki-sex-1
+      responses:
+        '200':
+          description: Video metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetaResponse'
+
+  /stream/{type}/{id}.json:
+    get:
+      summary: Get video streams
+      description: Get available streams for a video
+      tags:
+        - Stremio
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [anime, movie, series]
+          example: anime
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Video slug/ID
+          example: shishunki-sex-1
+      responses:
+        '200':
+          description: Video streams
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StreamResponse'
+
+  /verify:
+    post:
+      summary: Verify Hanime credentials
+      description: >-
+        Authenticates against Hanime with the supplied credentials and caches the
+        session. Returns 503 with `blocked: true` when the server's IP is
+        Cloudflare-blocked, which is distinct from a 401 for bad credentials.
+      tags:
+        - Configure
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Credentials accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  isPremium:
+                    type: boolean
+        '400':
+          description: Email or password missing
+        '401':
+          description: Credentials rejected by Hanime
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: false
+                  blocked:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+        '503':
+          description: Server IP blocked by Cloudflare
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: false
+                  blocked:
+                    type: boolean
+                    example: true
+                  error:
+                    type: string
+
+  /proxy/image/{id}/{type}:
+    get:
+      summary: Proxy images from Hanime CDN
+      description: >-
+        Resolves the CDN URL for a Stremio id and proxies the image with the
+        headers the CDN expects. Only hanime-cdn.com URLs are fetched.
+      tags:
+        - Proxy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: URL-encoded Stremio id (e.g. `hanime%3Amy-video-1`)
+          example: hanime%3Amy-video-1
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [poster, background]
+          example: poster
+      responses:
+        '200':
+          description: Image binary data
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: No CDN URL known for this id
+
+/proxy/stream/{payload}:
+    get:
+      summary: Proxy an HLS manifest or segment
+      description: >-
+        Serves hanime HLS on the player's behalf so the player's own IP never
+        reaches hanime. Only active when STREAM_PROXY_ENABLED is true. `payload`
+        is a base64url-encoded upstream URL and `s` is an HMAC signature over it;
+        the signature is verified before the payload is decoded, and the upstream
+        host must be on the allowlist. Manifest responses have every nested
+        playlist, segment, AES key and init-segment URI rewritten to point back
+        at this endpoint.
+      tags:
+        - Proxy
+      parameters:
+        - name: payload
+          in: path
+          required: true
+          schema:
+            type: string
+          description: base64url-encoded absolute hanime URL
+          example: aHR0cHM6Ly9oYW5pbWUudHYvaGxzL3ZpZGVvLzcyMC9pbmRleC5tM3U4
+        - name: s
+          in: query
+          required: true
+          schema:
+            type: string
+          description: HMAC-SHA256 signature over the payload
+      responses:
+        '200':
+          description: Proxied manifest or segment
+          content:
+            application/vnd.apple.mpegurl:
+              schema:
+                type: string
+            video/mp2t:
+              schema:
+                type: string
+                format: binary
+        '403':
+          description: Signature invalid, missing, or upstream host not allowed
+        '502':
+          description: Upstream refused the request (commonly a Cloudflare block)
+
+components:
+  schemas:
+    Manifest:
+      type: object
+      properties:
+        id:
+          type: string
+          example: hanime-addon
+        version:
+          type: string
+          example: 1.0.3
+        name:
+          type: string
+          example: Hanime
+        description:
+          type: string
+        resources:
+          type: array
+          items:
+            type: string
+          example: [catalog, stream, meta]
+        types:
+          type: array
+          items:
+            type: string
+          example: [anime, movie, series]
+        catalogs:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogDefinition'
+
+    CatalogDefinition:
+      type: object
+      properties:
+        type:
+          type: string
+        name:
+          type: string
+        id:
+          type: string
+        extra:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogExtra'
+
+    CatalogExtra:
+      type: object
+      properties:
+        name:
+          type: string
+        isRequired:
+          type: boolean
+        options:
+          type: array
+          items:
+            type: string
+
+    CatalogResponse:
+      type: object
+      properties:
+        metas:
+          type: array
+          items:
+            $ref: '#/components/schemas/MetaPreview'
+
+    MetaPreview:
+      type: object
+      properties:
+        id:
+          type: string
+          example: shishunki-sex-1
+        type:
+          type: string
+          example: anime
+        name:
+          type: string
+        poster:
+          type: string
+          format: uri
+        posterShape:
+          type: string
+          example: poster
+        background:
+          type: string
+          format: uri
+        genre:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+
+    MetaResponse:
+      type: object
+      properties:
+        meta:
+          $ref: '#/components/schemas/MetaDetail'
+
+    MetaDetail:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        name:
+          type: string
+        poster:
+          type: string
+          format: uri
+        posterShape:
+          type: string
+        background:
+          type: string
+          format: uri
+        logo:
+          type: string
+          format: uri
+        description:
+          type: string
+        releaseInfo:
+          type: string
+        runtime:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        director:
+          type: array
+          items:
+            type: string
+        cast:
+          type: array
+          items:
+            type: string
+        popularityRank:
+          type: integer
+        imdbRating:
+          type: string
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/MetaLink'
+
+    MetaLink:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+        url:
+          type: string
+          format: uri
+
+    StreamResponse:
+      type: object
+      properties:
+        streams:
+          type: array
+          items:
+            $ref: '#/components/schemas/Stream'
+
+    Stream:
+      type: object
+      properties:
+        name:
+          type: string
+          example: 1080p
+        description:
+          type: string
+        url:
+          type: string
+          format: uri
+        behaviorHints:
+          type: object
+          properties:
+            notWebReady:
+              type: boolean
+
+tags:
+  - name: Stremio
+    description: Stremio addon endpoints
+  - name: Configure
+    description: Configuration and credential verification
+  - name: Proxy
+    description: Image proxy endpoints
+

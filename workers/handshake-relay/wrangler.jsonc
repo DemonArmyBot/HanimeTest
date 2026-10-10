@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "hanime-handshake-relay",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-07-14",
+  "account_id": "a02e65aa211e91055825ae4dc99cc042",
+  "workers_dev": false,
+  "routes": [
+    {
+      // Change to the domain you control, or drop the `routes` block entirely
+      // and deploy to <name>.<subdomain>.workers.dev.
+      "pattern": "hanime-handshake.skynetsource.com",
+      "custom_domain": true
+    }
+  ],
+  "secrets": {
+    "required": ["RELAY_SECRET"]
+  }
+}

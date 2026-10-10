@@ -1,0 +1,96 @@
+version: '3'
+
+services:
+  hanime-addon:
+    build: .
+    ports:
+      - "61327:61327"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - hanime-network
+    environment:
+      # Server configuration
+      - PUBLIC_URL=http://localhost:61327
+      - NODE_ENV=development
+      - PORT=61327
+      # Logging
+      - LOG_LEVEL=debug
+      # Cache configuration
+      - CACHE_ENABLED=true
+      - CACHE_BROWSER_CACHE=true
+      - CACHE_REDIS_URL=redis://redis:6379
+      # Relay is optional. Leave these unset to talk to Hanime directly (works
+      # from residential IPs); set both to route the handshake/search/login
+      # through the Worker on hosts that Cloudflare blocks.
+      - HTV_HANDSHAKE_URL=${HTV_HANDSHAKE_URL:-}
+      - HTV_SEARCH_URL=${HTV_SEARCH_URL:-}
+      - HTV_RELAY_SECRET=${HTV_RELAY_SECRET:-}
+      - HTV_SEARCH_HOSTS=${HTV_SEARCH_HOSTS:-}
+      - HTV_HANDSHAKE_HOSTS=${HTV_HANDSHAKE_HOSTS:-}
+      - HTV_AUTH_HOSTS=${HTV_AUTH_HOSTS:-}
+      - HTV_MAX_HOST_ATTEMPTS=${HTV_MAX_HOST_ATTEMPTS:-}
+      # Player-side headers. proxyHeaders = Stremio spec (works in official
+      # clients); pipe = `|`-suffixed URL for ExoPlayer/MPV forks only.
+      - HTV_PLAYER_HEADER_MODE=${HTV_PLAYER_HEADER_MODE:-}
+      - HTV_PLAYER_USER_AGENT=${HTV_PLAYER_USER_AGENT:-}
+      - HTV_PLAYER_REFERER=${HTV_PLAYER_REFERER:-}
+      - HTV_PLAYER_ORIGIN=${HTV_PLAYER_ORIGIN:-}
+      # Residential egress proxy for handshake/login/search. Needed when
+      # Cloudflare blocks the VPS/datacenter IP. Leave empty for direct.
+      - HTV_PROXY_URL=${HTV_PROXY_URL:-}
+      # Browser-based Cloudflare challenge solver. MUST share this server egress IP.
+      - CF_BYPASS_URL=${CF_BYPASS_URL:-}
+      - CF_BYPASS_TOKEN=${CF_BYPASS_TOKEN:-}
+      # VPS stream proxy. Off by default. When on, playback is routed through this
+      # server so the player's own IP never reaches hanime. Requires PUBLIC_URL
+      # to be reachable from the player's device.
+      - STREAM_PROXY_ENABLED=${STREAM_PROXY_ENABLED:-false}
+      - STREAM_PROXY_PATH=${STREAM_PROXY_PATH:-}
+      - STREAM_PROXY_SECRET=${STREAM_PROXY_SECRET:-}
+      - RATE_LIMIT_ENABLED=true
+      - RATE_LIMIT_USE_REDIS=true
+      - SLOW_DOWN_ENABLED=true
+      - SLOW_DOWN_USE_REDIS=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:61327/manifest.json', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 768m --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    networks:
+      - hanime-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1'
+          memory: 256M
+
+networks:
+  hanime-network:
+    driver: bridge
